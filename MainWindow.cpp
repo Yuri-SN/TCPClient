@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+#include "MainWindow.h"
 #include "./ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -8,16 +8,14 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     client = new TCPclient(this);
-    //Доступность полей по умолчанию
+    // Доступность полей по умолчанию
     ui->le_data->setEnabled(false);
     ui->pb_request->setEnabled(false);
     ui->lb_connectStatus->setText("Отключено");
     ui->lb_connectStatus->setStyleSheet("color: red");
 
-
-    //При отключении меняем надписи и доступность полей.
-    connect(client, &TCPclient::sig_Disconnected, this, [&]{
-
+    // При отключении меняем надписи и доступность полей.
+    connect(client, &TCPclient::sig_Disconnected, this, [&] {
         ui->lb_connectStatus->setText("Отключено");
         ui->lb_connectStatus->setStyleSheet("color: red");
         ui->pb_connect->setText("Подключиться");
@@ -28,16 +26,11 @@ MainWindow::MainWindow(QWidget *parent)
         ui->spB_ip2->setEnabled(true);
         ui->spB_ip3->setEnabled(true);
         ui->spB_ip4->setEnabled(true);
-
     });
 
-
-
- /*
-  * Соединяем сигналы со слотами
- */
-
-
+    /*
+   * Соединяем сигналы со слотами
+   */
 }
 
 MainWindow::~MainWindow()
@@ -48,22 +41,10 @@ MainWindow::~MainWindow()
 /*!
  * \brief Группа методо отображения различных данных
  */
-void MainWindow::DisplayTime(QDateTime time)
-{
-
-}
-void MainWindow::DisplayFreeSpace(uint32_t freeSpace)
-{
-
-}
-void MainWindow::SetDataReply(QString replyString)
-{
-
-}
-void MainWindow::DisplayStat(StatServer stat)
-{
-
-}
+void MainWindow::DisplayTime(QDateTime time) {}
+void MainWindow::DisplayFreeSpace(uint32_t freeSpace) {}
+void MainWindow::SetDataReply(QString replyString) {}
+void MainWindow::DisplayStat(StatServer stat) {}
 void MainWindow::DisplayError(uint16_t error)
 {
     switch (error) {
@@ -84,7 +65,6 @@ void MainWindow::DisplaySuccess(uint16_t typeMess)
     default:
         break;
     }
-
 }
 
 /*!
@@ -92,13 +72,11 @@ void MainWindow::DisplaySuccess(uint16_t typeMess)
  */
 void MainWindow::DisplayConnectStatus(uint16_t status)
 {
+    if (status == ERR_CONNECT_TO_HOST) {
+        ui->tb_result->append("Ошибка подключения к порту: "
+                              + QString::number(ui->spB_port->value()));
 
-    if(status == ERR_CONNECT_TO_HOST){
-
-        ui->tb_result->append("Ошибка подключения к порту: " + QString::number(ui->spB_port->value()));
-
-    }
-    else{
+    } else {
         ui->lb_connectStatus->setText("Подключено");
         ui->lb_connectStatus->setStyleSheet("color: green");
         ui->pb_connect->setText("Отключиться");
@@ -109,7 +87,6 @@ void MainWindow::DisplayConnectStatus(uint16_t status)
         ui->spB_ip3->setEnabled(false);
         ui->spB_ip4->setEnabled(false);
     }
-
 }
 
 /*!
@@ -117,20 +94,15 @@ void MainWindow::DisplayConnectStatus(uint16_t status)
  */
 void MainWindow::on_pb_connect_clicked()
 {
-    if(ui->pb_connect->text() == "Подключиться"){
-
+    if (ui->pb_connect->text() == "Подключиться") {
         uint16_t port = ui->spB_port->value();
 
-        QString ip = ui->spB_ip4->text() + "." +
-                     ui->spB_ip3->text() + "." +
-                     ui->spB_ip2->text() + "." +
-                     ui->spB_ip1->text();
+        QString ip = ui->spB_ip4->text() + "." + ui->spB_ip3->text() + "." + ui->spB_ip2->text()
+                     + "." + ui->spB_ip1->text();
 
         client->ConnectToHost(QHostAddress(ip), port);
 
-    }
-    else{
-
+    } else {
         client->DisconnectFromHost();
     }
 }
@@ -139,36 +111,32 @@ void MainWindow::on_pb_connect_clicked()
  * Для отправки сообщения согласно ПИВ необходимо
  * заполнить заголовок и передать его на сервер. В ответ
  * сервер вернет информацию в соответствии с типом сообщения
-*/
+ */
 void MainWindow::on_pb_request_clicked()
 {
+    ServiceHeader header;
 
-   ServiceHeader header;
+    header.id = ID;
+    header.status = STATUS_SUCCES;
+    header.len = 0;
 
-   header.id = ID;
-   header.status = STATUS_SUCCES;
-   header.len = 0;
+    switch (ui->cb_request->currentIndex()) {
+    // Получить время
+    case 0:
+    // Получить свободное место
+    case 1:
+    // Получить статистику
+    case 2:
+    // Отправить данные
+    case 3:
+    // Очистить память на сервере
+    case 4:
+    default:
+        ui->tb_result->append("Такой запрос не реализован в текущей версии");
+        return;
+    }
 
-   switch (ui->cb_request->currentIndex()){
-
-       //Получить время
-       case 0:
-       //Получить свободное место
-       case 1:
-       //Получить статистику
-       case 2:
-       //Отправить данные
-       case 3:
-       //Очистить память на сервере
-       case 4:
-       default:
-       ui->tb_result->append("Такой запрос не реализован в текущей версии");
-       return;
-
-   }
-
-   client->SendRequest(header);
-
+    client->SendRequest(header);
 }
 
 /*!
@@ -176,12 +144,11 @@ void MainWindow::on_pb_request_clicked()
  */
 void MainWindow::on_cb_request_currentIndexChanged(int index)
 {
-    //Разблокируем поле отправления данных только когда выбрано "Отправить данные"
-    if(ui->cb_request->currentIndex() == 3){
+    // Разблокируем поле отправления данных только когда выбрано "Отправить
+    // данные"
+    if (ui->cb_request->currentIndex() == 3) {
         ui->le_data->setEnabled(true);
-    }
-    else{
+    } else {
         ui->le_data->setEnabled(false);
     }
 }
-
