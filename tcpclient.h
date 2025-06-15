@@ -24,6 +24,7 @@ private slots:
     void ReadyRead(void);
     void ProcessingData(ServiceHeader header, QDataStream &stream);
     void slotConnected();
+    void slotDisconnected();
 
 private:
     QTcpSocket *socket;

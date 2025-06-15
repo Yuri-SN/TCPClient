@@ -61,7 +61,7 @@ TCPclient::TCPclient(QObject *parent)
     connect(socket, &QTcpSocket::readyRead, this, &TCPclient::ReadyRead);
 
     connect(socket, &QTcpSocket::connected, this, &TCPclient::slotConnected);
-    connect(socket, &QTcpSocket::disconnected, this, &TCPclient::sig_Disconnected);
+    connect(socket, &QTcpSocket::disconnected, this, &TCPclient::slotDisconnected);
 }
 
 /* write
@@ -171,7 +171,6 @@ void TCPclient::ReadyRead()
  * Поскольку все типы сообщений нам известны реализуем выбор через
  * switch. Реализуем получение времени.
  */
-
 void TCPclient::ProcessingData(ServiceHeader header, QDataStream &stream)
 {
     switch (header.idData) {
@@ -226,5 +225,10 @@ void TCPclient::ProcessingData(ServiceHeader header, QDataStream &stream)
 
 void TCPclient::slotConnected()
 {
-    emit sig_connectStatus(1);
+    emit sig_connectStatus(STATUS_SUCCES);
+}
+
+void TCPclient::slotDisconnected()
+{
+    emit sig_Disconnected();
 }

@@ -29,9 +29,6 @@ MainWindow::MainWindow(QWidget *parent)
         ui->spB_ip4->setEnabled(true);
     });
 
-    connect(ui->pb_connect, &QPushButton::clicked, this, &MainWindow::on_pb_connect_clicked);
-    connect(ui->pb_request, &QPushButton::clicked, this, &MainWindow::on_pb_request_clicked);
-
     connect(client, &TCPclient::sig_connectStatus, this, &MainWindow::DisplayConnectStatus);
     connect(client, &TCPclient::sig_Error, this, &MainWindow::DisplayError);
 
