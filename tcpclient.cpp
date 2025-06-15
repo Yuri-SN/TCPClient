@@ -11,8 +11,10 @@ QDataStream &operator>>(QDataStream &out, ServiceHeader &data)
     out >> data.idData;
     out >> data.status;
     out >> data.len;
+
     return out;
 };
+
 QDataStream &operator<<(QDataStream &in, ServiceHeader &data)
 {
     in << data.id;
@@ -23,6 +25,30 @@ QDataStream &operator<<(QDataStream &in, ServiceHeader &data)
     return in;
 };
 
+QDataStream &operator<<(QDataStream &out, const StatServer &stat)
+{
+    out << stat.incBytes;
+    out << stat.sendBytes;
+    out << stat.revPck;
+    out << stat.sendPck;
+    out << stat.workTime;
+    out << stat.clients;
+
+    return out;
+}
+
+QDataStream &operator>>(QDataStream &in, StatServer &stat)
+{
+    in >> stat.incBytes;
+    in >> stat.sendBytes;
+    in >> stat.revPck;
+    in >> stat.sendPck;
+    in >> stat.workTime;
+    in >> stat.clients;
+
+    return in;
+}
+
 /*
  * Поскольку мы являемся клиентом, инициализацию сокета
  * проведем в конструкторе. Также необходимо соединить
@@ -30,29 +56,61 @@ QDataStream &operator<<(QDataStream &in, ServiceHeader &data)
  */
 TCPclient::TCPclient(QObject *parent)
     : QObject(parent)
-{}
+    , socket(new QTcpSocket(this))
+{
+    connect(socket, &QTcpSocket::readyRead, this, &TCPclient::ReadyRead);
+
+    connect(socket, &QTcpSocket::connected, this, &TCPclient::slotConnected);
+    connect(socket, &QTcpSocket::disconnected, this, &TCPclient::sig_Disconnected);
+}
 
 /* write
  * Метод отправляет запрос на сервер. Сериализировать будем
  * при помощи QDataStream
  */
-void TCPclient::SendRequest(ServiceHeader head) {}
+void TCPclient::SendRequest(ServiceHeader head)
+{
+    SendData(head, QString());
+}
 
 /* write
  * Такой же метод только передаем еще данные.
  */
-void TCPclient::SendData(ServiceHeader head, QString str) {}
+void TCPclient::SendData(ServiceHeader head, QString str)
+{
+    QByteArray block;
+    QDataStream out(&block, QIODevice::WriteOnly);
+    out.setVersion(QDataStream::Qt_6_0);
+
+    out << head;
+
+    if (!str.isEmpty()) {
+        out << str;
+    }
+
+    socket->write(block);
+    socket->flush();
+}
 
 /*
  * \brief Метод подключения к серверу
  */
-void TCPclient::ConnectToHost(QHostAddress host, uint16_t port) {}
+void TCPclient::ConnectToHost(QHostAddress host, uint16_t port)
+{
+    socket->connectToHost(host, port);
+}
+
 /*
  * \brief Метод отключения от сервера
  */
-void TCPclient::DisconnectFromHost() {}
+void TCPclient::DisconnectFromHost()
+{
+    if (socket->state() == QTcpSocket::ConnectedState) {
+        socket->disconnectFromHost();
+    }
+}
 
-void TCPclient::ReadyReed()
+void TCPclient::ReadyRead()
 {
     QDataStream incStream(socket);
 
@@ -92,7 +150,8 @@ void TCPclient::ReadyReed()
                 }
             }
         }
-        // Если получены не все данные, то выходим из обработчика. Ждем новую
+
+        // Если получены не все данные, то выходим из обработчика. Ждём новую
         // посылку
         if (socket->bytesAvailable() < servHeader.len) {
             return;
@@ -116,12 +175,56 @@ void TCPclient::ReadyReed()
 void TCPclient::ProcessingData(ServiceHeader header, QDataStream &stream)
 {
     switch (header.idData) {
-    case GET_TIME:
-    case GET_SIZE:
-    case GET_STAT:
-    case SET_DATA:
-    case CLEAR_DATA:
-    default:
-        return;
+    case GET_TIME: {
+        QDateTime time;
+        stream >> time;
+        emit sig_sendTime(time);
+        qDebug() << "[LOG] Получено время от сервера:" << time.toString();
+        break;
     }
+    case GET_SIZE: {
+        uint32_t freeSize = 0;
+        stream >> freeSize;
+        emit sig_sendFreeSize(freeSize);
+        qDebug() << "[LOG] Получено свободное место на сервере:" << freeSize << "байт";
+        break;
+    }
+    case GET_STAT: {
+        StatServer stat;
+        stream >> stat;
+        emit sig_sendStat(stat);
+        qDebug() << "[LOG] Получена статистика сервера:";
+        qDebug() << "  Принято байт:" << stat.incBytes;
+        qDebug() << "  Отправлено байт:" << stat.sendBytes;
+        qDebug() << "  Принято пакетов:" << stat.revPck;
+        qDebug() << "  Отправлено пакетов:" << stat.sendPck;
+        qDebug() << "  Время работы сервера:" << stat.workTime << "сек.";
+        qDebug() << "  Клиентов:" << stat.clients;
+        break;
+    }
+    case SET_DATA: {
+        QString reply;
+        stream >> reply;
+        emit sig_SendReplyForSetData(reply);
+        qDebug() << "[LOG] Ответ сервера на SET_DATA:" << reply;
+        break;
+    }
+    case CLEAR_DATA: {
+        QString reply;
+        stream >> reply;
+        emit sig_SendReplyForSetData(reply);
+        qDebug() << "[LOG] Сервер очистил данные. Ответ:" << reply;
+        break;
+    }
+    default: {
+        qDebug() << "[LOG] Неизвестный idData в заголовке:" << header.idData;
+        emit sig_Error(ERR_NO_FUNCT);
+        break;
+    }
+    }
+}
+
+void TCPclient::slotConnected()
+{
+    emit sig_connectStatus(1);
 }

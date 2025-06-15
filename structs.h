@@ -35,10 +35,10 @@ struct StatServer
 {
     StatServer() { memset(this, 0, sizeof(*this)); }
 
-    uint32_t incBytes;  // принято байт
-    uint32_t sendBytes; // передано байт
-    uint32_t revPck;    // принто пакетов
-    uint32_t sendPck;   // передано пакетов
+    uint32_t incBytes;  // Принято байт
+    uint32_t sendBytes; // Передано байт
+    uint32_t revPck;    // Принто пакетов
+    uint32_t sendPck;   // Передано пакетов
     uint32_t workTime;  // Время работы сервера секунд
     uint32_t clients;   // Количество подключенных клиентов
 };

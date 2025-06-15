@@ -1,5 +1,5 @@
 #include "MainWindow.h"
-#include "./ui_mainwindow.h"
+#include "./ui_MainWindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -8,6 +8,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     client = new TCPclient(this);
+
     // Доступность полей по умолчанию
     ui->le_data->setEnabled(false);
     ui->pb_request->setEnabled(false);
@@ -28,9 +29,16 @@ MainWindow::MainWindow(QWidget *parent)
         ui->spB_ip4->setEnabled(true);
     });
 
-    /*
-   * Соединяем сигналы со слотами
-   */
+    connect(ui->pb_connect, &QPushButton::clicked, this, &MainWindow::on_pb_connect_clicked);
+    connect(ui->pb_request, &QPushButton::clicked, this, &MainWindow::on_pb_request_clicked);
+
+    connect(client, &TCPclient::sig_connectStatus, this, &MainWindow::DisplayConnectStatus);
+    connect(client, &TCPclient::sig_Error, this, &MainWindow::DisplayError);
+
+    connect(client, &TCPclient::sig_sendTime, this, &MainWindow::DisplayTime);
+    connect(client, &TCPclient::sig_sendStat, this, &MainWindow::DisplayStat);
+    connect(client, &TCPclient::sig_sendFreeSize, this, &MainWindow::DisplayFreeSpace);
+    connect(client, &TCPclient::sig_SendReplyForSetData, this, &MainWindow::SetDataReply);
 }
 
 MainWindow::~MainWindow()
@@ -39,12 +47,36 @@ MainWindow::~MainWindow()
 }
 
 /*!
- * \brief Группа методо отображения различных данных
+ * \brief Группа методов отображения различных данных
  */
-void MainWindow::DisplayTime(QDateTime time) {}
+void MainWindow::DisplayTime(QDateTime time)
+{
+    ui->tb_result->append("[INFO] Получено время от сервера: " + time.toString());
+}
+
 void MainWindow::DisplayFreeSpace(uint32_t freeSpace) {}
+
 void MainWindow::SetDataReply(QString replyString) {}
-void MainWindow::DisplayStat(StatServer stat) {}
+
+void MainWindow::DisplayStat(StatServer stat)
+{
+    QString output = QString("Статистика сервера:\n"
+                             "  Принято байт: %1\n"
+                             "  Отправлено байт: %2\n"
+                             "  Принято пакетов: %3\n"
+                             "  Отправлено пакетов: %4\n"
+                             "  Время работы: %5 сек.\n"
+                             "  Клиентов: %6")
+                         .arg(stat.incBytes)
+                         .arg(stat.sendBytes)
+                         .arg(stat.revPck)
+                         .arg(stat.sendPck)
+                         .arg(stat.workTime)
+                         .arg(stat.clients);
+
+    ui->tb_result->append(output);
+}
+
 void MainWindow::DisplayError(uint16_t error)
 {
     switch (error) {
@@ -101,7 +133,6 @@ void MainWindow::on_pb_connect_clicked()
                      + "." + ui->spB_ip1->text();
 
         client->ConnectToHost(QHostAddress(ip), port);
-
     } else {
         client->DisconnectFromHost();
     }
@@ -123,14 +154,24 @@ void MainWindow::on_pb_request_clicked()
     switch (ui->cb_request->currentIndex()) {
     // Получить время
     case 0:
+        header.idData = GET_TIME;
+        break;
     // Получить свободное место
     case 1:
+        header.idData = GET_SIZE;
+        break;
     // Получить статистику
     case 2:
+        header.idData = GET_STAT;
+        break;
     // Отправить данные
     case 3:
+        header.idData = SET_DATA;
+        break;
     // Очистить память на сервере
     case 4:
+        header.idData = CLEAR_DATA;
+        break;
     default:
         ui->tb_result->append("Такой запрос не реализован в текущей версии");
         return;
